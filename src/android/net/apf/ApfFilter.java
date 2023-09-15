@@ -26,7 +26,6 @@ import static android.system.OsConstants.IPPROTO_ICMPV6;
 import static android.system.OsConstants.IPPROTO_TCP;
 import static android.system.OsConstants.IPPROTO_UDP;
 import static android.system.OsConstants.SOCK_RAW;
-
 import static com.android.net.module.util.NetworkStackConstants.ETHER_BROADCAST;
 import static com.android.net.module.util.NetworkStackConstants.ICMPV6_ECHO_REQUEST_TYPE;
 import static com.android.net.module.util.NetworkStackConstants.ICMPV6_NEIGHBOR_ADVERTISEMENT;
@@ -113,12 +112,12 @@ public class ApfFilter {
         public boolean ieee802_3Filter;
         public int[] ethTypeBlackList;
         public int minRdnssLifetimeSec;
+        public int acceptRaMinLft;
     }
 
     // Enums describing the outcome of receiving an RA packet.
     private static enum ProcessRaResult {
         MATCH,          // Received RA matched a known RA
-        DROPPED,        // Received RA ignored due to MAX_RAS
         PARSE_ERROR,    // Received RA could not be parsed
         ZERO_LIFETIME,  // Received RA had 0 lifetime
         UPDATE_NEW_RA,  // APF program updated for new RA
@@ -204,7 +203,6 @@ public class ApfFilter {
 
         private int mReceivedRas = 0;
         private int mMatchingRas = 0;
-        private int mDroppedRas = 0;
         private int mParseErrors = 0;
         private int mZeroLifetimeRas = 0;
         private int mProgramUpdates = 0;
@@ -243,9 +241,6 @@ public class ApfFilter {
                 case MATCH:
                     mMatchingRas++;
                     return;
-                case DROPPED:
-                    mDroppedRas++;
-                    return;
                 case PARSE_ERROR:
                     mParseErrors++;
                     return;
@@ -268,7 +263,6 @@ public class ApfFilter {
                 final ApfStats stats = new ApfStats.Builder()
                         .setReceivedRas(mReceivedRas)
                         .setMatchingRas(mMatchingRas)
-                        .setDroppedRas(mDroppedRas)
                         .setParseErrors(mParseErrors)
                         .setZeroLifetimeRas(mZeroLifetimeRas)
                         .setProgramUpdates(mProgramUpdates)
@@ -536,7 +530,6 @@ public class ApfFilter {
     private static class PacketSection {
         public enum Type {
             MATCH,     // A field that should be matched (e.g., the router IP address).
-            IGNORE,    // An ignored field such as the checksum of the flow label. Not matched.
             LIFETIME,  // A lifetime. Not matched, and generally counts toward minimum RA lifetime.
         }
 
@@ -589,6 +582,8 @@ public class ApfFilter {
         private static final int ICMP6_PREFIX_OPTION_PREFERRED_LIFETIME_OFFSET = 8;
         private static final int ICMP6_PREFIX_OPTION_PREFERRED_LIFETIME_LEN = 4;
 
+        // From RFC4861: source link-layer address
+        private static final int ICMP6_SOURCE_LL_ADDRESS_OPTION_TYPE = 1;
         // From RFC4861: mtu size option
         private static final int ICMP6_MTU_OPTION_TYPE = 5;
         // From RFC6106: Recursive DNS Server option
@@ -771,8 +766,6 @@ public class ApfFilter {
          * @param length the length of the section in bytes
          */
         private void addIgnoreSection(int length) {
-            mPacketSections.add(
-                    new PacketSection(mPacket.position(), length, PacketSection.Type.IGNORE, 0, 0));
             mPacket.position(mPacket.position() + length);
         }
 
@@ -844,6 +837,10 @@ public class ApfFilter {
             addMatchUntil(IPV6_FLOW_LABEL_OFFSET);
             addIgnoreSection(IPV6_FLOW_LABEL_LEN);
 
+            // Ignore IPv6 destination address.
+            addMatchUntil(IPV6_DEST_ADDR_OFFSET);
+            addIgnoreSection(IPV6_ADDR_LEN);
+
             // Ignore checksum.
             addMatchUntil(ICMP6_RA_CHECKSUM_OFFSET);
             addIgnoreSection(ICMP6_RA_CHECKSUM_LEN);
@@ -899,6 +896,7 @@ public class ApfFilter {
                         lifetime = add4ByteLifetimeOption(optionType, optionLength);
                         builder.updateRouteInfoLifetime(lifetime);
                         break;
+                    case ICMP6_SOURCE_LL_ADDRESS_OPTION_TYPE:
                     case ICMP6_MTU_OPTION_TYPE:
                     case ICMP6_PREF64_OPTION_TYPE:
                         addMatchSection(optionLength);
@@ -1981,16 +1979,16 @@ public class ApfFilter {
             }
         }
         purgeExpiredRasLocked();
-        // TODO: figure out how to proceed when we've received more then MAX_RAS RAs.
         if (mRas.size() >= MAX_RAS) {
-            return ProcessRaResult.DROPPED;
+            // Remove the last (i.e. oldest) RA.
+            mRas.remove(mRas.size() - 1);
         }
         // Ignore 0 lifetime RAs.
         if (ra.isExpired()) {
             return ProcessRaResult.ZERO_LIFETIME;
         }
         log("Adding " + ra);
-        mRas.add(ra);
+        mRas.add(0, ra);
         installNewProgramLocked();
         return ProcessRaResult.UPDATE_NEW_RA;
     }

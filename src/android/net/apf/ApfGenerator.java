@@ -16,6 +16,8 @@
 
 package android.net.apf;
 
+import androidx.annotation.NonNull;
+
 import com.android.internal.annotations.VisibleForTesting;
 
 import java.util.ArrayList;
@@ -26,7 +28,7 @@ import java.util.List;
  * APF assembler/generator.  A tool for generating an APF program.
  *
  * Call add*() functions to add instructions to the program, then call
- * {@link generate} to get the APF bytecode for the program.
+ * {@link ApfGenerator#generate} to get the APF bytecode for the program.
  *
  * @hide
  */
@@ -129,16 +131,27 @@ public class ApfGenerator {
         }
     }
 
-    private static class Immediate {
+    private enum IntImmediateType {
+        INDETERMINATE_SIZE_SIGNED,
+        INDETERMINATE_SIZE_UNSIGNED,
+        SIGNED_8,
+        UNSIGNED_8,
+        SIGNED_BE16,
+        UNSIGNED_BE16,
+        SIGNED_BE32,
+        UNSIGNED_BE32;
+    }
+
+    private static class IntImmediate {
         public final boolean mSigned;
         public final byte mImmSize;
         public final int mValue;
 
-        Immediate(int value, boolean signed) {
+        IntImmediate(int value, boolean signed) {
             this(value, signed, calculateImmSize(value, signed));
         }
 
-        Immediate(int value, boolean signed, byte size) {
+        IntImmediate(int value, boolean signed, byte size) {
             mValue = value;
             mSigned = signed;
             mImmSize = size;
@@ -154,7 +167,7 @@ public class ApfGenerator {
     private class Instruction {
         private final byte mOpcode;   // A "Opcode" value.
         private final byte mRegister; // A "Register" value.
-        public final List<Immediate> mImms = new ArrayList<>();
+        public final List<IntImmediate> mIntImms = new ArrayList<>();
         // When mOpcode is a jump:
         private byte mTargetLabelSize;
         private String mTargetLabel;
@@ -174,19 +187,19 @@ public class ApfGenerator {
         }
 
         void addUnsignedImm(int imm) {
-            addImm(new Immediate(imm, false));
+            addImm(new IntImmediate(imm, false));
         }
 
         void addUnsignedImm(int imm, byte size) {
-            addImm(new Immediate(imm, false, size));
+            addImm(new IntImmediate(imm, false, size));
         }
 
         void addSignedImm(int imm) {
-            addImm(new Immediate(imm, true));
+            addImm(new IntImmediate(imm, true));
         }
 
-        void addImm(Immediate imm) {
-            mImms.add(imm);
+        void addImm(IntImmediate imm) {
+            mIntImms.add(imm);
         }
 
         void setLabel(String label) throws IllegalInstructionException {
@@ -222,7 +235,7 @@ public class ApfGenerator {
             int size = 1;
             byte maxImmSize = getMaxImmSize();
             // For the copy opcode, the last imm is the length field is always 1 byte
-            size += mImms.size() * maxImmSize;
+            size += mIntImms.size() * maxImmSize;
             if (mTargetLabel != null) {
                 size += maxImmSize;
             }
@@ -241,13 +254,12 @@ public class ApfGenerator {
             if (mTargetLabel == null) {
                 return false;
             }
-            int oldSize = size();
             int oldTargetLabelSize = mTargetLabelSize;
             mTargetLabelSize = calculateImmSize(calculateTargetLabelOffset(), false);
             if (mTargetLabelSize > oldTargetLabelSize) {
                 throw new IllegalStateException("instruction grew");
             }
-            return size() < oldSize;
+            return mTargetLabelSize < oldTargetLabelSize;
         }
 
         /**
@@ -284,7 +296,7 @@ public class ApfGenerator {
         }
 
         /**
-         * Generate bytecode for this instruction at offset {@link offset}.
+         * Generate bytecode for this instruction at offset {@link Instruction#offset}.
          */
         void generate(byte[] bytecode) throws IllegalInstructionException {
             if (mOpcode == Opcodes.LABEL.value) {
@@ -297,7 +309,7 @@ public class ApfGenerator {
                 writingOffset = writeValue(calculateTargetLabelOffset(), bytecode, writingOffset,
                         maxImmSize);
             }
-            for (Immediate imm : mImms) {
+            for (IntImmediate imm : mIntImms) {
                 writingOffset = writeValue(imm.mValue, bytecode, writingOffset, maxImmSize);
             }
             if (mBytesImm != null) {
@@ -320,8 +332,8 @@ public class ApfGenerator {
          */
         private byte getMaxImmSize() {
             byte maxSize = mTargetLabelSize;
-            for (int i = 0; i < mImms.size(); ++i) {
-                maxSize = (byte) Math.max(maxSize, mImms.get(i).mImmSize);
+            for (int i = 0; i < mIntImms.size(); ++i) {
+                maxSize = (byte) Math.max(maxSize, mIntImms.get(i).mImmSize);
             }
             return maxSize;
         }
@@ -898,7 +910,8 @@ public class ApfGenerator {
      */
     public ApfGenerator addCountAndPass(int counterNumber) throws IllegalInstructionException {
         requireApfVersion(MIN_APF_VERSION_IN_DEV);
-        checkCounterNumber(counterNumber);
+        checkRange("CounterNumber", counterNumber /* value */, 1 /* lowerBound */,
+                1000 /* upperBound */);
         Instruction instruction = new Instruction(Opcodes.PASS, Register.R0);
         instruction.addUnsignedImm(counterNumber);
         addInstruction(instruction);
@@ -921,7 +934,8 @@ public class ApfGenerator {
      */
     public ApfGenerator addCountAndDrop(int counterNumber) throws IllegalInstructionException {
         requireApfVersion(MIN_APF_VERSION_IN_DEV);
-        checkCounterNumber(counterNumber);
+        checkRange("CounterNumber", counterNumber /* value */, 1 /* lowerBound */,
+                1000 /* upperBound */);
         Instruction instruction = new Instruction(Opcodes.DROP, Register.R1);
         instruction.addUnsignedImm(counterNumber);
         addInstruction(instruction);
@@ -1129,11 +1143,14 @@ public class ApfGenerator {
         }
     }
 
-    private void checkCounterNumber(int counterNumber) {
-        if (counterNumber < 1 || counterNumber > 1000) {
-            throw new IllegalArgumentException(
-                    "Counter number must be in range (0, 1000], counterNumber: " + counterNumber);
+    private void checkRange(@NonNull String variableName, int value, int lowerBound,
+            int upperBound) {
+        if (value >= lowerBound && value <= upperBound) {
+            return;
         }
+        throw new IllegalArgumentException(
+                String.format("%s: %d, must be in range [%d, %d]", variableName, value, lowerBound,
+                        upperBound));
     }
 
     /**

@@ -1165,6 +1165,9 @@ public class NetworkMonitor extends StateMachine {
                     if (tst != null) {
                         tst.setLinkProperties(mLinkProperties);
                     }
+                    if (mDdrEnabled) {
+                        mDdrTracker.notifyLinkPropertiesChanged(mLinkProperties);
+                    }
                     break;
                 case EVENT_NETWORK_CAPABILITIES_CHANGED:
                     handleCapabilitiesChanged((NetworkCapabilities) message.obj,

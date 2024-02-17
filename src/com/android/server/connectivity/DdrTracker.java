@@ -32,6 +32,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.net.InetAddress;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -51,8 +52,13 @@ class DdrTracker {
     @NonNull
     private DnsInfo mDnsInfo;
 
+    // Stores the DoT servers discovered from strict mode hostname resolution.
+    @NonNull
+    private final List<InetAddress> mDotServers;
+
     DdrTracker() {
         mDnsInfo = new DnsInfo(new PrivateDnsConfig(false /* useTls */), new ArrayList<>());
+        mDotServers = new ArrayList<>();
     }
 
     /**
@@ -64,6 +70,7 @@ class DdrTracker {
         if (arePrivateDnsSettingsEquals(cfg, mDnsInfo.cfg)) return false;
 
         mDnsInfo = new DnsInfo(cfg, mDnsInfo.dnsServers);
+        resetStrictModeHostnameResolutionResult();
         return true;
     }
 
@@ -84,6 +91,15 @@ class DdrTracker {
 
         mDnsInfo = new DnsInfo(mDnsInfo.cfg, servers);
         return true;
+    }
+
+    void setStrictModeHostnameResolutionResult(@NonNull InetAddress[] ips) {
+        resetStrictModeHostnameResolutionResult();
+        mDotServers.addAll(Arrays.asList(ips));
+    }
+
+    void resetStrictModeHostnameResolutionResult() {
+        mDotServers.clear();
     }
 
     @VisibleForTesting

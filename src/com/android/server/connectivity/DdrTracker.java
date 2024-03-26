@@ -150,7 +150,7 @@ class DdrTracker {
      * returns false.
      */
     boolean notifyPrivateDnsSettingsChanged(@NonNull PrivateDnsConfig cfg) {
-        if (arePrivateDnsSettingsEquals(cfg, mDnsInfo.cfg)) return false;
+        if (mDnsInfo.cfg.areSettingsSameAs(cfg)) return false;
 
         ++mTokenId;
         mDnsInfo = new DnsInfo(cfg, getDnsServers());
@@ -434,11 +434,6 @@ class DdrTracker {
         // This should just work but will need testing.
         mDnsResolver.rawQuery(mCleartextDnsNetwork, host, CLASS_IN, TYPE_SVCB, 0 /* flags */,
                 mExecutor, cancelSignal, callback);
-    }
-
-    private static boolean arePrivateDnsSettingsEquals(@NonNull PrivateDnsConfig a,
-            @NonNull PrivateDnsConfig b) {
-        return a.mode == b.mode && TextUtils.equals(a.hostname, b.hostname);
     }
 
     private static InetAddress[] toArray(List<InetAddress> list) {

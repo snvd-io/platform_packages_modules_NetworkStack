@@ -31,7 +31,6 @@ import static org.mockito.Mockito.doReturn;
 import android.app.job.JobScheduler;
 import android.content.Context;
 import android.database.sqlite.SQLiteDatabase;
-import android.database.sqlite.SQLiteException;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.net.ipmemorystore.Blob;
 import android.net.ipmemorystore.IOnBlobRetrievedListener;
@@ -1008,12 +1007,7 @@ public class IpMemoryStoreServiceTest {
         mService.shutdown();
 
         for (int version = SCHEMA_VERSION - 1; version >= 1; version--) {
-            try {
-                doTestDowngradeAndUpgrade(version);
-            } catch (SQLiteException expected) {
-                // TODO: fix production code not to crash, and remove this try/catch.
-                return;
-            }
+            doTestDowngradeAndUpgrade(version);
         }
     }
 }

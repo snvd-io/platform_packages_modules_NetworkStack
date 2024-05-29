@@ -217,11 +217,6 @@ public class IpMemoryStoreDatabase {
             // Downgrades always nuke all data and recreate an empty table.
             db.execSQL(NetworkAttributesContract.DROP_TABLE);
             db.execSQL(PrivateDataContract.DROP_TABLE);
-            // TODO: add test for downgrades. Triggers should already be dropped
-            // when the table is dropped, so this may be a bug.
-            // Note that fixing this code does not affect how older versions
-            // will handle downgrades.
-            db.execSQL("DROP TRIGGER " + TRIGGER_NAME);
             onCreate(db);
         }
 

@@ -2812,8 +2812,12 @@ public class ApfFilter implements AndroidPacketFilter {
 
                     // If the counter's value decreases, it may have been cleaned up or there may be
                     // a bug.
-                    if (value < mApfCounterTracker.getCounters().getOrDefault(c, 0L)) {
-                        Log.e(TAG, "Error: Counter value unexpectedly decreased.");
+                    long oldValue = mApfCounterTracker.getCounters().getOrDefault(c, 0L);
+                    if (value < oldValue) {
+                        Log.e(TAG, String.format(
+                                "Apf Counter: %s unexpectedly decreased. oldValue: %d. newValue: "
+                                        + "%d",
+                                c.toString(), oldValue, value));
                     }
                 }
             } catch (ArrayIndexOutOfBoundsException e) {

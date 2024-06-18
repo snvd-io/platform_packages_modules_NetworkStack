@@ -2163,6 +2163,18 @@ public class IpClient extends StateMachine {
     // Returns false if we have lost provisioning, true otherwise.
     private boolean handleLinkPropertiesUpdate(boolean sendCallbacks) {
         final LinkProperties newLp = assembleLinkProperties();
+
+        // We need to call mApfFilter.setLinkProperties(newLp) every time there is a LinkAddress
+        // change because ApfFilter needs to know when addresses change from tentative to
+        // non-tentative. setLinkProperties() inside IpClient won't be called if the
+        // LinkProperties.equal() check returns true. The LinkProperties.equal() check does not
+        // currently take into account the LinkAddress flag change.
+        // It is OK to call mApfFilter.setLinkProperties() multiple times because if IP
+        // addresses are not updated, ApfFilter won't generate new program.
+        if (mApfFilter != null) {
+            mApfFilter.setLinkProperties(newLp);
+        }
+
         if (Objects.equals(newLp, mLinkProperties)) {
             return true;
         }

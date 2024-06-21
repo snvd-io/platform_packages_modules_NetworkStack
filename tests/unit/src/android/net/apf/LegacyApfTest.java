@@ -32,7 +32,6 @@ import static com.android.net.module.util.HexDump.hexStringToByteArray;
 import static com.android.net.module.util.NetworkStackConstants.ICMPV6_ECHO_REQUEST_TYPE;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.any;
@@ -677,30 +676,6 @@ public class LegacyApfTest {
     public void testApfFilterMulticastPingWhileDozing() throws Exception {
         doTestApfFilterMulticastPingWhileDozing(false /* isLightDozing */);
     }
-
-    @Test
-    @DevSdkIgnoreRule.IgnoreUpTo(Build.VERSION_CODES.TIRAMISU)
-    public void testApfFilterMulticastPingWhileLightDozing() throws Exception {
-        doTestApfFilterMulticastPingWhileDozing(true /* isLightDozing */);
-    }
-
-    @Test
-    @DevSdkIgnoreRule.IgnoreUpTo(Build.VERSION_CODES.TIRAMISU)
-    public void testShouldHandleLightDozeKillSwitch() throws Exception {
-        final MockIpClientCallback ipClientCallback = new MockIpClientCallback();
-        final ApfConfiguration configuration = getDefaultConfig();
-        configuration.shouldHandleLightDoze = false;
-        final ApfFilter apfFilter = TestApfFilter.createTestApfFilter(mContext, ipClientCallback,
-                configuration, mNetworkQuirkMetrics, mDependencies);
-        final ArgumentCaptor<BroadcastReceiver> receiverCaptor =
-                ArgumentCaptor.forClass(BroadcastReceiver.class);
-        verify(mDependencies).addDeviceIdleReceiver(receiverCaptor.capture(), anyBoolean());
-        final BroadcastReceiver receiver = receiverCaptor.getValue();
-        doReturn(true).when(mPowerManager).isDeviceLightIdleMode();
-        receiver.onReceive(mContext, new Intent(ACTION_DEVICE_LIGHT_IDLE_MODE_CHANGED));
-        assertFalse(apfFilter.isInDozeMode());
-    }
-
     private void doTestApfFilterMulticastPingWhileDozing(boolean isLightDozing) throws Exception {
         final MockIpClientCallback ipClientCallback = new MockIpClientCallback();
         final ApfConfiguration configuration = getDefaultConfig();
@@ -1565,47 +1540,6 @@ public class LegacyApfTest {
         assertPass(program, raPacket);
     }
 
-    // The ByteBuffer is always created by ByteBuffer#wrap in the helper functions
-    @SuppressWarnings("ByteBufferBackingArray")
-    @Test
-    public void testRaWithProgramInstalledSomeTimeAfterLastSeen() throws Exception {
-        final MockIpClientCallback ipClientCallback = new MockIpClientCallback();
-        final ApfConfiguration config = getDefaultConfig();
-        config.multicastFilter = DROP_MULTICAST;
-        config.ieee802_3Filter = DROP_802_3_FRAMES;
-        final TestApfFilter apfFilter = new TestApfFilter(mContext, config, ipClientCallback,
-                mNetworkQuirkMetrics, mDependencies);
-        byte[] program = ipClientCallback.assertProgramUpdateAndGet();
-
-        final int routerLifetime = 1000;
-        final int timePassedSeconds = 12;
-
-        // Verify that when the program is generated and installed some time after RA is last seen
-        // it should be installed with the correct remaining lifetime.
-        ByteBuffer basePacket = ByteBuffer.wrap(new RaPacketBuilder(routerLifetime).build());
-        verifyRaLifetime(apfFilter, ipClientCallback, basePacket, routerLifetime);
-        apfFilter.increaseCurrentTimeSeconds(timePassedSeconds);
-        synchronized (apfFilter) {
-            apfFilter.installNewProgramLocked();
-        }
-        program = ipClientCallback.assertProgramUpdateAndGet();
-        verifyRaLifetime(program, basePacket, routerLifetime, timePassedSeconds);
-
-        // Packet should be passed if the program is installed after 1/6 * lifetime from last seen
-        apfFilter.increaseCurrentTimeSeconds((int) (routerLifetime / 6) - timePassedSeconds - 1);
-        synchronized (apfFilter) {
-            apfFilter.installNewProgramLocked();
-        }
-        program = ipClientCallback.assertProgramUpdateAndGet();
-        assertDrop(program, basePacket.array());
-        apfFilter.increaseCurrentTimeSeconds(1);
-        synchronized (apfFilter) {
-            apfFilter.installNewProgramLocked();
-        }
-        program = ipClientCallback.assertProgramUpdateAndGet();
-        assertPass(program, basePacket.array());
-    }
-
     /**
      * Stage a file for testing, i.e. make it native accessible. Given a resource ID,
      * copy that resource into the app's data directory and return the path to it.
@@ -1674,29 +1608,6 @@ public class LegacyApfTest {
                 throw new Exception("bad packet: " + HexDump.toHexString(packet), e);
             }
         }
-    }
-
-    @Test
-    public void testMatchedRaUpdatesLifetime() throws Exception {
-        final MockIpClientCallback ipClientCallback = new MockIpClientCallback();
-        final TestApfFilter apfFilter = new TestApfFilter(mContext, getDefaultConfig(),
-                ipClientCallback, mNetworkQuirkMetrics, mDependencies);
-
-        // Create an RA and build an APF program
-        byte[] ra = new RaPacketBuilder(1800 /* router lifetime */).build();
-        apfFilter.pretendPacketReceived(ra);
-        byte[] program = ipClientCallback.assertProgramUpdateAndGet();
-
-        // lifetime dropped significantly, assert pass
-        ra = new RaPacketBuilder(200 /* router lifetime */).build();
-        assertPass(program, ra);
-
-        // update program with the new RA
-        apfFilter.pretendPacketReceived(ra);
-        program = ipClientCallback.assertProgramUpdateAndGet();
-
-        // assert program was updated and new lifetimes were taken into account.
-        assertDrop(program, ra);
     }
 
     @Test

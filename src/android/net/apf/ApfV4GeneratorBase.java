@@ -52,9 +52,9 @@ public abstract class ApfV4GeneratorBase<Type extends ApfV4GeneratorBase<Type>> 
      * the requested version is unsupported.
      */
     @VisibleForTesting(visibility = VisibleForTesting.Visibility.PACKAGE)
-    public ApfV4GeneratorBase(int version, boolean disableCounterRangeCheck)
-            throws IllegalInstructionException {
-        super(version, disableCounterRangeCheck);
+    public ApfV4GeneratorBase(int version, int ramSize, int clampSize,
+            boolean disableCounterRangeCheck) throws IllegalInstructionException {
+        super(version, ramSize, clampSize, disableCounterRangeCheck);
         requireApfVersion(APF_VERSION_2);
     }
 

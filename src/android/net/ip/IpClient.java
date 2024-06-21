@@ -2568,9 +2568,11 @@ public class IpClient extends StateMachine {
         if (SdkLevel.isAtLeastS()) {
             apfConfig.apfVersionSupported = apfCaps.apfVersionSupported;
         } else {
-            // Due to potential OEM modifications in Android R, reconfigure
-            // apfVersionSupported using apfCapabilities.hasDataAccess() to ensure safe data
-            // region access within ApfFilter.
+            // In Android R, ApfCapabilities#hasDataAccess() can be modified by OEMs. The
+            // ApfFilter logic uses ApfCapabilities.apfVersionSupported to determine whether
+            // data region access is supported. Therefore, we need to recalculate
+            // ApfCapabilities.apfVersionSupported based on the return value of
+            // ApfCapabilities#hasDataAccess().
             apfConfig.apfVersionSupported = apfCaps.hasDataAccess() ? 3 : 2;
         }
         apfConfig.maximumApfProgramSize = apfCaps.maximumApfProgramSize;

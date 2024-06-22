@@ -302,9 +302,10 @@ public class NetworkStackUtils {
 
     /**
      * Kill switch flag to disable the feature of handle arp offload in Apf.
+     * Warning: the following flag String is incorrect. The feature that is not chickened out is
+     * "ARP offload" not "ARP offload force disabled".
      */
-    public static final String APF_HANDLE_ARP_OFFLOAD_FORCE_DISABLE =
-            "apf_handle_arp_offload_force_disable";
+    public static final String APF_HANDLE_ARP_OFFLOAD = "apf_handle_arp_offload_force_disable";
 
     static {
         System.loadLibrary("networkstackutilsjni");

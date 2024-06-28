@@ -22,6 +22,7 @@ import static android.net.apf.BaseApfGenerator.Register.R0;
 
 import android.annotation.NonNull;
 
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.net.module.util.ByteUtils;
 import com.android.net.module.util.CollectionUtils;
 import com.android.net.module.util.HexDump;
@@ -854,6 +855,7 @@ public abstract class BaseApfGenerator {
     /**
      * Return a unique label string.
      */
+    @VisibleForTesting
     public String getUniqueLabel() {
         return "LABEL_" + mLabelCount++;
     }

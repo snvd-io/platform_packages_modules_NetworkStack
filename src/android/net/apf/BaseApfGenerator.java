@@ -41,10 +41,10 @@ public abstract class BaseApfGenerator {
 
     public BaseApfGenerator(int version, int ramSize, int clampSize,
             boolean disableCounterRangeCheck) {
-        this.mVersion = version;
-        this.mRamSize = ramSize;
-        this.mClampSize = clampSize;
-        this.mDisableCounterRangeCheck = disableCounterRangeCheck;
+        mVersion = version;
+        mRamSize = ramSize;
+        mClampSize = clampSize;
+        mDisableCounterRangeCheck = disableCounterRangeCheck;
     }
 
     /**

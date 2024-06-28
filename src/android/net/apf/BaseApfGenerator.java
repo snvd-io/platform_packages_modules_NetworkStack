@@ -854,7 +854,7 @@ public abstract class BaseApfGenerator {
     /**
      * Return a unique label string.
      */
-    protected String getUniqueLabel() {
+    public String getUniqueLabel() {
         return "LABEL_" + mLabelCount++;
     }
 

@@ -78,9 +78,9 @@ class ApfStandaloneTest {
         val packetBadEtherType =
                 HexDump.hexStringToByteArray("ffffffffffff047bcb463fb588a201")
         val dataRegion = ByteArray(Counter.totalSize()) { 0 }
-        ApfTestUtils.assertVerdict(
+        ApfTestHelpers.assertVerdict(
             APF_VERSION_4,
-            ApfTestUtils.DROP,
+            ApfTestHelpers.DROP,
             program,
             packetBadEtherType,
             dataRegion
@@ -135,13 +135,12 @@ class ApfStandaloneTest {
         //
         // raw bytes:
         // ffffffffffff047bcb463fb508004500011c00010000401179d100000000ffffffff004400430108393b010106000000000b000000000000000000000000000000000000000030343a37623a63623a34363a33663a62000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000638253633501033604c0a801013204c0a80164ff
-
         val dhcpRequestPkt = HexDump.hexStringToByteArray(
             "ffffffffffff047bcb463fb508004500011c00010000401179d100000000ffffffff004400430108393b010106000000000b000000000000000000000000000000000000000030343a37623a63623a34363a33663a62000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000638253633501033604c0a801013204c0a80164ff"
         )
-        ApfTestUtils.assertVerdict(
+        ApfTestHelpers.assertVerdict(
             APF_VERSION_4,
-            ApfTestUtils.DROP,
+            ApfTestHelpers.DROP,
             program,
             dhcpRequestPkt,
             dataRegion
@@ -177,7 +176,7 @@ class ApfStandaloneTest {
         val rsPkt = HexDump.hexStringToByteArray(
             "ffffffffffff047bcb463fb586dd6000000000083afffe8000000000000030b45e42ef3d36e5ff0200000000000000000000000000028500c81d00000000"
         )
-        ApfTestUtils.assertVerdict(APF_VERSION_4, ApfTestUtils.DROP, program, rsPkt, dataRegion)
+        ApfTestHelpers.assertVerdict(APF_VERSION_4, ApfTestHelpers.DROP, program, rsPkt, dataRegion)
         assertEquals(mapOf<Counter, Long>(
                 Counter.TOTAL_PACKETS to 3,
                 Counter.DROPPED_RS to 1,
@@ -217,9 +216,9 @@ class ApfStandaloneTest {
             val pingRequestPkt = HexDump.hexStringToByteArray(
                 "ffffffffffff047bcb463fb508004500001c000100004001a52d644f6154080808080800f7ff00000000"
             )
-            ApfTestUtils.assertVerdict(
+            ApfTestHelpers.assertVerdict(
                 APF_VERSION_4,
-                ApfTestUtils.DROP,
+                ApfTestHelpers.DROP,
                 program,
                 pingRequestPkt,
                 dataRegion

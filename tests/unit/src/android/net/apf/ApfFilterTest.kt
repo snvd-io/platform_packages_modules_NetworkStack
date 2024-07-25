@@ -369,6 +369,49 @@ class ApfFilterTest {
             DROPPED_IPV4_NON_DHCP4
         )
 
+        // Using scapy to generate non UDP protocol packet:
+        //   ether = Ether(src='00:11:22:33:44:55', dst='ff:ff:ff:ff:ff:ff')
+        //   ip = IP(src='192.168.1.1', dst='255.255.255.255', proto=12)
+        //   pkt = ether/ip
+        val nonUdpPkt = """
+            ffffffffffff00112233445508004500001400010000400cb934c0a80101ffffffff
+        """.replace("\\s+".toRegex(), "").trim()
+        verifyProgramRun(
+            apfFilter.mApfVersionSupported,
+            program,
+            HexDump.hexStringToByteArray(nonUdpPkt),
+            DROPPED_IPV4_NON_DHCP4
+        )
+
+        // Using scapy to generate fragmented UDP protocol packet:
+        //   ether = Ether(src='00:11:22:33:44:55', dst='ff:ff:ff:ff:ff:ff')
+        //   ip = IP(src='192.168.1.1', dst='255.255.255.255', flags=1, frag=10, proto=17)
+        //   pkt = ether/ip
+        val fragmentUdpPkt = """
+            ffffffffffff0011223344550800450000140001200a40119925c0a80101ffffffff
+        """.replace("\\s+".toRegex(), "").trim()
+        verifyProgramRun(
+            apfFilter.mApfVersionSupported,
+            program,
+            HexDump.hexStringToByteArray(fragmentUdpPkt),
+            DROPPED_IPV4_NON_DHCP4
+        )
+
+        // Using scapy to generate destination port is not DHCP client port packet:
+        //   ether = Ether(src='00:11:22:33:44:55', dst='ff:ff:ff:ff:ff:ff')
+        //   ip = IP(src='192.168.1.1', dst='255.255.255.255')
+        //   udp = UDP(dport=70)
+        //   pkt = ether/ip/udp
+        val nonDhcpServerPkt = """
+            ffffffffffff00112233445508004500001c000100004011b927c0a80101ffffffff0035004600083dba
+        """.replace("\\s+".toRegex(), "").trim()
+        verifyProgramRun(
+            apfFilter.mApfVersionSupported,
+            program,
+            HexDump.hexStringToByteArray(nonDhcpServerPkt),
+            DROPPED_IPV4_NON_DHCP4
+        )
+
         // Using scapy to generate DHCP4 offer packet:
         //   ether = Ether(src='00:11:22:33:44:55', dst='ff:ff:ff:ff:ff:ff')
         //   ip = IP(src='192.168.1.1', dst='255.255.255.255')

@@ -732,7 +732,7 @@ public class IpClient extends StateMachine {
     // Experiment flag read from device config.
     private final boolean mDhcp6PrefixDelegationEnabled;
     private final boolean mUseNewApfFilter;
-    private final boolean mEnableIpClientIgnoreLowRaLifetime;
+    private final boolean mIsAcceptRaMinLftEnabled;
     private final boolean mEnableApfPollingCounters;
     private final boolean mPopulateLinkAddressLifetime;
     private final boolean mApfShouldHandleArpOffload;
@@ -980,7 +980,7 @@ public class IpClient extends StateMachine {
                 APF_NEW_RA_FILTER_VERSION);
         mEnableApfPollingCounters = mDependencies.isFeatureEnabled(context,
                 APF_POLLING_COUNTERS_VERSION);
-        mEnableIpClientIgnoreLowRaLifetime =
+        mIsAcceptRaMinLftEnabled =
                 SdkLevel.isAtLeastV() || mDependencies.isFeatureEnabled(context,
                         IPCLIENT_IGNORE_LOW_RA_LIFETIME_VERSION);
         mApfShouldHandleArpOffload = mDependencies.isFeatureNotChickenedOut(
@@ -2473,7 +2473,7 @@ public class IpClient extends StateMachine {
         setIpv6Sysctl(ACCEPT_RA, 2);
         setIpv6Sysctl(ACCEPT_RA_DEFRTR, 1);
         maybeRestoreDadTransmits();
-        if (mUseNewApfFilter && mEnableIpClientIgnoreLowRaLifetime
+        if (mUseNewApfFilter && mIsAcceptRaMinLftEnabled
                 && mDependencies.hasIpv6Sysctl(mInterfaceName, ACCEPT_RA_MIN_LFT)) {
             setIpv6Sysctl(ACCEPT_RA_MIN_LFT, 0 /* sysctl default */);
         }
@@ -2602,7 +2602,7 @@ public class IpClient extends StateMachine {
         // Check the feature flag first before reading IPv6 sysctl, which can prevent from
         // triggering a potential kernel bug about the sysctl.
         // TODO: add unit test to check if the setIpv6Sysctl() is called or not.
-        if (mEnableIpClientIgnoreLowRaLifetime && mUseNewApfFilter
+        if (mIsAcceptRaMinLftEnabled && mUseNewApfFilter
                 && mDependencies.hasIpv6Sysctl(mInterfaceName, ACCEPT_RA_MIN_LFT)) {
             setIpv6Sysctl(ACCEPT_RA_MIN_LFT, mAcceptRaMinLft);
             final Integer acceptRaMinLft = getIpv6Sysctl(ACCEPT_RA_MIN_LFT);

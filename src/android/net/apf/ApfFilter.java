@@ -229,6 +229,12 @@ public class ApfFilter implements AndroidPacketFilter {
         protected void handlePacket(byte[] recvbuf, int length) {
             processRa(recvbuf, length);
         }
+
+        // override for public access.
+        @Override
+        public boolean isRunning() {
+            return super.isRunning();
+        }
     }
 
     private static final String TAG = "ApfFilter";

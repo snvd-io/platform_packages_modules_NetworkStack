@@ -319,15 +319,15 @@ public class ApfFilter implements AndroidPacketFilter {
     private final BroadcastReceiver mDeviceIdleReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            final PowerManager powerManager = context.getSystemService(PowerManager.class);
-            if (isDeviceIdleModeChangedAction(intent)
-                    || isDeviceLightIdleModeChangedAction(intent)) {
-                final boolean deviceIdle = powerManager.isDeviceIdleMode()
-                        || isDeviceLightIdleMode(powerManager);
-                // TODO: do a handler post here to make sure the setDozeMode is called on the
-                //  handler thread.
-                setDozeMode(deviceIdle);
-            }
+            mHandler.post(() -> {
+                final PowerManager powerManager = context.getSystemService(PowerManager.class);
+                if (isDeviceIdleModeChangedAction(intent)
+                        || isDeviceLightIdleModeChangedAction(intent)) {
+                    final boolean deviceIdle = powerManager.isDeviceIdleMode()
+                            || isDeviceLightIdleMode(powerManager);
+                    setDozeMode(deviceIdle);
+                }
+            });
         }
     };
 

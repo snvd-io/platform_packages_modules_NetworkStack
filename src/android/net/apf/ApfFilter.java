@@ -320,6 +320,7 @@ public class ApfFilter implements AndroidPacketFilter {
         @Override
         public void onReceive(Context context, Intent intent) {
             mHandler.post(() -> {
+                if (mIsApfShutdown) return;
                 final PowerManager powerManager = context.getSystemService(PowerManager.class);
                 if (isDeviceIdleModeChangedAction(intent)
                         || isDeviceLightIdleModeChangedAction(intent)) {
@@ -330,6 +331,8 @@ public class ApfFilter implements AndroidPacketFilter {
             });
         }
     };
+
+    private boolean mIsApfShutdown;
 
     // Our IPv4 address, if we have just one, otherwise null.
     @GuardedBy("this")
@@ -409,6 +412,8 @@ public class ApfFilter implements AndroidPacketFilter {
         mSessionStartMs = dependencies.elapsedRealtime();
         mMinMetricsSessionDurationMs = config.minMetricsSessionDurationMs;
         mHasClat = config.hasClatInterface;
+
+        mIsApfShutdown = false;
 
         // Now fill the black list from the passed array
         mEthTypeBlackList = filterEthTypeBlackList(config.ethTypeBlackList);
@@ -2575,6 +2580,7 @@ public class ApfFilter implements AndroidPacketFilter {
         mRaPacketReader.stop();
         mRas.clear();
         mDependencies.removeBroadcastReceiver(mDeviceIdleReceiver);
+        mIsApfShutdown = true;
     }
 
     public synchronized void setMulticastFilter(boolean isEnabled) {

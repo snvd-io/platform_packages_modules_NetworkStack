@@ -364,6 +364,18 @@ public class ApfFilter implements AndroidPacketFilter {
                 new Dependencies(context));
     }
 
+    private synchronized void maybeCleanUpApfRam() {
+        // Clear the APF memory to reset all counters upon connecting to the first AP
+        // in an SSID. This is limited to APFv3 devices because this large write triggers
+        // a crash on some older devices (b/78905546).
+        if (hasDataAccess(mApfVersionSupported)) {
+            byte[] zeroes = new byte[mApfRamSize];
+            if (!mIpClientCallback.installPacketFilter(zeroes)) {
+                sendNetworkQuirkMetrics(NetworkQuirkEvent.QE_APF_INSTALL_FAILURE);
+            }
+        }
+    }
+
     @VisibleForTesting
     public ApfFilter(Handler handler, Context context, ApfConfiguration config,
             InterfaceParams ifParams, IpClientCallbacksWrapper ipClientCallback,
@@ -413,16 +425,7 @@ public class ApfFilter implements AndroidPacketFilter {
         mHardwareAddress = mInterfaceParams.macAddr.toByteArray();
         // TODO: ApfFilter should not generate programs until IpClient sends provisioning success.
         synchronized (this) {
-            // Clear the APF memory to reset all counters upon connecting to the first AP
-            // in an SSID. This is limited to APFv3 devices because this large write triggers
-            // a crash on some older devices (b/78905546).
-            if (hasDataAccess(mApfVersionSupported)) {
-                byte[] zeroes = new byte[mApfRamSize];
-                if (!mIpClientCallback.installPacketFilter(zeroes)) {
-                    sendNetworkQuirkMetrics(NetworkQuirkEvent.QE_APF_INSTALL_FAILURE);
-                }
-            }
-
+            maybeCleanUpApfRam();
             // Install basic filters
             installNewProgramLocked();
         }
@@ -2892,6 +2895,11 @@ public class ApfFilter implements AndroidPacketFilter {
 
     /** Resume ApfFilter updates for testing purposes. */
     public void resume() {
+        maybeCleanUpApfRam();
+        // Since the resume() function and cleanup process invalidate previous counter
+        // snapshots, the ApfCounterTracker needs to be reset to maintain reliable, incremental
+        // counter tracking.
+        mApfCounterTracker.clearCounters();
         mIsRunning = true;
     }
 

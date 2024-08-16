@@ -33,6 +33,7 @@ import android.system.Os;
 import android.text.TextUtils;
 import android.util.LocalLog;
 import android.util.Log;
+import android.util.LruCache;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -46,6 +47,7 @@ import com.android.networkstack.util.NetworkStackUtils;
 
 import java.io.FileDescriptor;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Objects;
 
 
@@ -96,6 +98,10 @@ public class ConnectivityPacketTracker {
             return socket;
         }
 
+        public int getMaxCapturePktSize() {
+            return MAX_CAPTURE_PACKET_SIZE;
+        }
+
         private void closeFd(FileDescriptor fd) {
             try {
                 closeSocket(fd);
@@ -114,18 +120,51 @@ public class ConnectivityPacketTracker {
     // Use a TokenBucket to limit CPU usage of logging packets in steady state.
     private static final int TOKEN_FILL_RATE = 50;   // Maximum one packet every 20ms.
     private static final int MAX_BURST_LENGTH = 100; // Maximum burst 100 packets.
+    private static final int MAX_CAPTURE_PACKET_SIZE = 100; // Maximum capture packet size
 
     private final String mTag;
     private final LocalLog mLog;
     private final PacketReader mPacketListener;
     private final TokenBucket mTokenBucket = new TokenBucket(TOKEN_FILL_RATE, MAX_BURST_LENGTH);
+    // store packet hex string in uppercase as key, receive packet count as value
+    private final LruCache<String, Integer> mPacketCache;
     private final Dependencies mDependencies;
     private long mLastRateLimitLogTimeMs = 0;
     private boolean mRunning;
+    private boolean mCapturing;
     private String mDisplayName;
 
     public ConnectivityPacketTracker(Handler h, InterfaceParams ifParams, LocalLog log) {
         this(h, ifParams, log, new Dependencies(log));
+    }
+
+    /**
+     * Sets the capture state.
+     *
+     * <p>This method controls whether packet capture is enabled. If capture is disabled,
+     * the internal packet map is cleared.</p>
+     *
+     * @param isCapture {@code true} to enable capture, {@code false} to disable capture
+     */
+    public void setCapture(boolean isCapture) {
+        mCapturing = isCapture;
+        if (!isCapture) {
+            mPacketCache.evictAll();
+        }
+    }
+
+    /**
+     * Gets the count of matched packets for a given pattern.
+     *
+     * <p>This method searches the internal packet map for packets matching the specified pattern
+     * and returns the count of such packets.</p>
+     *
+     * @param packet The hex string pattern to match against
+     * @return The count of packets matching the pattern, or 0 if no matches are found
+     */
+    public int getMatchedPacketCount(String packet) {
+        final Integer count = mPacketCache.get(packet);
+        return (count != null) ? count : 0;
     }
 
     public void start(String displayName) {
@@ -141,6 +180,11 @@ public class ConnectivityPacketTracker {
     }
 
     @VisibleForTesting(visibility = PRIVATE)
+    public int getTotalCapturePacketCount() {
+        return mPacketCache.size();
+    }
+
+    @VisibleForTesting(visibility = PRIVATE)
     public ConnectivityPacketTracker(
             @NonNull Handler handler,
             @NonNull InterfaceParams ifParams,
@@ -150,6 +194,7 @@ public class ConnectivityPacketTracker {
         mLog = log;
         mPacketListener = new PacketListener(handler, ifParams);
         mDependencies = dependencies;
+        mPacketCache = new LruCache<>(mDependencies.getMaxCapturePktSize());
     }
 
     private final class PacketListener extends PacketReader {
@@ -167,6 +212,8 @@ public class ConnectivityPacketTracker {
 
         @Override
         protected void handlePacket(byte[] recvbuf, int length) {
+            capturePacket(recvbuf, length);
+
             if (!mTokenBucket.get()) {
                 // Rate limited. Log once every second so the user knows packets are missing.
                 final long now = SystemClock.elapsedRealtime();
@@ -216,6 +263,22 @@ public class ConnectivityPacketTracker {
 
         private void addLogEntry(String entry) {
             mLog.log(entry);
+        }
+
+        private void capturePacket(byte[] recvbuf, int length) {
+            if (!mCapturing) {
+                return;
+            }
+
+            byte[] pkt = Arrays.copyOfRange(
+                    recvbuf, 0, Math.min(recvbuf.length, length));
+            final String pktHexString = HexDump.toHexString(pkt);
+            final Integer pktCnt = mPacketCache.get(pktHexString);
+            if (pktCnt == null) {
+                mPacketCache.put(pktHexString, 1);
+            } else {
+                mPacketCache.put(pktHexString, pktCnt + 1);
+            }
         }
     }
 }

@@ -1690,6 +1690,7 @@ public class NetworkMonitor extends StateMachine {
                     if (mDdrEnabled) {
                         mDdrTracker.startSvcbLookup();
                     }
+
                     if (mAsyncPrivdnsResolutionEnabled) {
                         // Cancel any previously scheduled retry attempt
                         removeMessages(CMD_EVALUATE_PRIVATE_DNS);
@@ -1705,6 +1706,7 @@ public class NetworkMonitor extends StateMachine {
                         break;
                     }
 
+                    // Async resolution not enabled, do a blocking DNS lookup.
                     if (inStrictMode()) {
                         if (!isStrictModeHostnameResolved(mSyncOnlyPrivateDnsConfig)) {
                             resolveStrictModeHostname();
@@ -2004,7 +2006,8 @@ public class NetworkMonitor extends StateMachine {
                             new PrivateDnsConfig(mPrivateDnsProviderHostname, ips));
                 }
 
-                validationLog("Strict mode hostname resolution " + elapsedNanos + "ns OK "
+                validationLog("Strict mode hostname resolution "
+                        + TimeUnit.NANOSECONDS.toMillis(elapsedNanos) + "ms OK "
                         + answer + " for " + mPrivateDnsProviderHostname);
                 transitionTo(mProbingForPrivateDnsState);
             } else {
@@ -2067,7 +2070,7 @@ public class NetworkMonitor extends StateMachine {
 
             final String strIps = Objects.toString(answer);
             validationLog(PROBE_PRIVDNS, queryName,
-                    String.format("%dus: %s", elapsedNanos / 1000, strIps));
+                    String.format("%dms: %s", TimeUnit.NANOSECONDS.toMillis(elapsedNanos), strIps));
 
             mEvaluationState.noteProbeResult(NETWORK_VALIDATION_PROBE_PRIVDNS, success);
             if (success) {

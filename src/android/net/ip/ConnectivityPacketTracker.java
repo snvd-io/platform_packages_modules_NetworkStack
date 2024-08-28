@@ -16,11 +16,14 @@
 
 package android.net.ip;
 
+import static android.net.util.SocketUtils.closeSocket;
 import static android.net.util.SocketUtils.makePacketSocketAddress;
 import static android.system.OsConstants.AF_PACKET;
 import static android.system.OsConstants.ETH_P_ALL;
 import static android.system.OsConstants.SOCK_NONBLOCK;
 import static android.system.OsConstants.SOCK_RAW;
+
+import static com.android.internal.annotations.VisibleForTesting.Visibility.PRIVATE;
 
 import android.net.util.ConnectivityPacketSummary;
 import android.os.Handler;
@@ -31,6 +34,10 @@ import android.text.TextUtils;
 import android.util.LocalLog;
 import android.util.Log;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.HexDump;
 import com.android.internal.util.TokenBucket;
 import com.android.net.module.util.InterfaceParams;
@@ -39,6 +46,7 @@ import com.android.networkstack.util.NetworkStackUtils;
 
 import java.io.FileDescriptor;
 import java.io.IOException;
+import java.util.Objects;
 
 
 /**
@@ -58,6 +66,45 @@ import java.io.IOException;
  * @hide
  */
 public class ConnectivityPacketTracker {
+    /**
+     * Dependencies class for testing.
+     */
+    @VisibleForTesting(visibility = PRIVATE)
+    public static class Dependencies {
+        private final LocalLog mLog;
+        public Dependencies(final LocalLog log) {
+            mLog = log;
+        }
+
+        /**
+         * Create a socket to read RAs.
+         */
+        @Nullable
+        public FileDescriptor createPacketReaderSocket(int ifIndex) {
+            FileDescriptor socket = null;
+            try {
+                socket = Os.socket(AF_PACKET, SOCK_RAW | SOCK_NONBLOCK, 0);
+                NetworkStackUtils.attachControlPacketFilter(socket);
+                Os.bind(socket, makePacketSocketAddress(ETH_P_ALL, ifIndex));
+            } catch (ErrnoException | IOException e) {
+                final String msg = "Failed to create packet tracking socket: ";
+                Log.e(TAG, msg, e);
+                mLog.log(msg + e);
+                closeFd(socket);
+                return null;
+            }
+            return socket;
+        }
+
+        private void closeFd(FileDescriptor fd) {
+            try {
+                closeSocket(fd);
+            } catch (IOException e) {
+                Log.e(TAG, "failed to close socket");
+            }
+        }
+    }
+
     private static final String TAG = ConnectivityPacketTracker.class.getSimpleName();
     private static final boolean DBG = false;
     private static final String MARK_START = "--- START ---";
@@ -72,16 +119,13 @@ public class ConnectivityPacketTracker {
     private final LocalLog mLog;
     private final PacketReader mPacketListener;
     private final TokenBucket mTokenBucket = new TokenBucket(TOKEN_FILL_RATE, MAX_BURST_LENGTH);
+    private final Dependencies mDependencies;
     private long mLastRateLimitLogTimeMs = 0;
     private boolean mRunning;
     private String mDisplayName;
 
     public ConnectivityPacketTracker(Handler h, InterfaceParams ifParams, LocalLog log) {
-        if (ifParams == null) throw new IllegalArgumentException("null InterfaceParams");
-
-        mTag = TAG + "." + ifParams.name;
-        mLog = log;
-        mPacketListener = new PacketListener(h, ifParams);
+        this(h, ifParams, log, new Dependencies(log));
     }
 
     public void start(String displayName) {
@@ -96,6 +140,18 @@ public class ConnectivityPacketTracker {
         mDisplayName = null;
     }
 
+    @VisibleForTesting(visibility = PRIVATE)
+    public ConnectivityPacketTracker(
+            @NonNull Handler handler,
+            @NonNull InterfaceParams ifParams,
+            @NonNull LocalLog log,
+            @NonNull Dependencies dependencies) {
+        mTag = TAG + "." + Objects.requireNonNull(ifParams).name;
+        mLog = log;
+        mPacketListener = new PacketListener(handler, ifParams);
+        mDependencies = dependencies;
+    }
+
     private final class PacketListener extends PacketReader {
         private final InterfaceParams mInterface;
 
@@ -106,17 +162,7 @@ public class ConnectivityPacketTracker {
 
         @Override
         protected FileDescriptor createFd() {
-            FileDescriptor s = null;
-            try {
-                s = Os.socket(AF_PACKET, SOCK_RAW | SOCK_NONBLOCK, 0);
-                NetworkStackUtils.attachControlPacketFilter(s);
-                Os.bind(s, makePacketSocketAddress(ETH_P_ALL, mInterface.index));
-            } catch (ErrnoException | IOException e) {
-                logError("Failed to create packet tracking socket: ", e);
-                closeFd(s);
-                return null;
-            }
-            return s;
+            return mDependencies.createPacketReaderSocket(mInterface.index);
         }
 
         @Override

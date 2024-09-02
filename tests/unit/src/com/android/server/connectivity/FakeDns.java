@@ -20,6 +20,8 @@ import static android.net.DnsResolver.TYPE_A;
 import static android.net.DnsResolver.TYPE_AAAA;
 import static android.net.InetAddresses.parseNumericAddress;
 
+import static com.android.net.module.util.DnsPacket.TYPE_SVCB;
+
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.doAnswer;
@@ -31,9 +33,12 @@ import android.os.Looper;
 
 import androidx.annotation.NonNull;
 
+import com.android.testutils.DnsSvcbUtils;
+
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
@@ -165,6 +170,16 @@ public class FakeDns {
         }
     }
 
+    private byte[] makeSvcbResponse(String hostname, List<String> answer) {
+        try {
+            return DnsSvcbUtils.makeSvcbResponse(hostname,
+                    answer.toArray(new String[0]));
+        } catch (IOException e) {
+            throw new AssertionError("Invalid test data building SVCB response for: "
+                    + answer);
+        }
+    }
+
     /** Simulates a getAllByName call for the specified name on the specified mock network. */
     private InetAddress[] getAllByName(Network mockNetwork, String hostname)
             throws UnknownHostException {
@@ -224,6 +239,13 @@ public class FakeDns {
             return mockQuery(invocation, 0 /* posNetwork */, 1 /* posHostname */,
                     4 /* posExecutor */, 6 /* posCallback */, 2 /* posType */);
         }).when(mDnsResolver).query(any(), any(), anyInt(), anyInt(), any(), any(), any());
+
+        // Queries using rawQuery. Currently, mockQuery only supports TYPE_SVCB.
+        doAnswer(invocation -> {
+            return mockQuery(invocation, 0 /* posNetwork */, 1 /* posHostname */,
+                    5 /* posExecutor */, 7 /* posCallback */, 3 /* posType */);
+        }).when(mDnsResolver).rawQuery(any(), any(), anyInt(), anyInt(), anyInt(), any(),
+                any(), any());
     }
 
     private List<InetAddress> stringsToInetAddresses(List<String> addrs) {
@@ -265,6 +287,9 @@ public class FakeDns {
                         case TYPE_A:
                         case TYPE_AAAA:
                             callback.onAnswer(stringsToInetAddresses(answer), 0);
+                            break;
+                        case TYPE_SVCB:
+                            callback.onAnswer(makeSvcbResponse(hostname, answer), 0);
                             break;
                         default:
                             throw new UnsupportedOperationException(

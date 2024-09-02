@@ -774,10 +774,15 @@ public class IpMemoryStoreDatabase {
     static int dropAllExpiredRecords(@NonNull final SQLiteDatabase db) {
         db.beginTransaction();
         try {
+            final long currentTimestamp = System.currentTimeMillis();
             // Deletes NetworkAttributes that have expired.
             db.delete(NetworkAttributesContract.TABLENAME,
                     NetworkAttributesContract.COLNAME_EXPIRYDATE + " < ?",
-                    new String[]{Long.toString(System.currentTimeMillis())});
+                    new String[]{Long.toString(currentTimestamp)});
+            // Deletes NetworkEvents that have expired.
+            db.delete(NetworkEventsContract.TABLENAME,
+                    NetworkEventsContract.COLNAME_EXPIRY + " < ?",
+                    new String[]{Long.toString(currentTimestamp)});
             db.setTransactionSuccessful();
         } catch (SQLiteException e) {
             Log.e(TAG, "Could not delete data from memory store", e);

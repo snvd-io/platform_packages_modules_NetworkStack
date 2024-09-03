@@ -35,6 +35,8 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.android.internal.annotations.VisibleForTesting;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.net.InetAddress;
@@ -153,12 +155,19 @@ public class IpMemoryStoreDatabase {
         // Update this whenever changing the schema.
         // DO NOT CHANGE without solid testing for downgrades, and checking onDowngrade
         // below: b/171340630
-        private static final int SCHEMA_VERSION = 4;
+        @VisibleForTesting
+        static final int SCHEMA_VERSION = 4;
         private static final String DATABASE_FILENAME = "IpMemoryStore.db";
         private static final String TRIGGER_NAME = "delete_cascade_to_private";
 
         public DbHelper(@NonNull final Context context) {
             super(context, DATABASE_FILENAME, null, SCHEMA_VERSION);
+            setIdleConnectionTimeout(IDLE_CONNECTION_TIMEOUT_MS);
+        }
+
+        @VisibleForTesting
+        DbHelper(@NonNull final Context context, int schemaVersion) {
+            super(context, DATABASE_FILENAME, null, schemaVersion);
             setIdleConnectionTimeout(IDLE_CONNECTION_TIMEOUT_MS);
         }
 

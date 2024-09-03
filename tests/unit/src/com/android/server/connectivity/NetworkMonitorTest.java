@@ -379,9 +379,19 @@ public class NetworkMonitorTest {
      * Fakes DNS responses.
      *
      * Allows test methods to configure the IP addresses that will be resolved by
-     * Network#getAllByName and by DnsResolver#query.
+     * Network#getAllByName and by various DnsResolver query methods.
      */
-    class FakeDns {
+    static class FakeDns {
+        private final Network mNetwork;
+        private final DnsResolver mDnsResolver;
+        private final ArrayList<DnsEntry> mAnswers = new ArrayList<>();
+        private boolean mNonBypassPrivateDnsWorking = true;
+
+        FakeDns(Network network, DnsResolver dnsResolver) {
+            mNetwork = network;
+            mDnsResolver = dnsResolver;
+        }
+
         /** Data class to record the Dns entry. */
         class DnsEntry {
             final String mHostname;
@@ -412,9 +422,6 @@ public class NetworkMonitorTest {
                 return mAnswers;
             }
         }
-
-        private final ArrayList<DnsEntry> mAnswers = new ArrayList<>();
-        private boolean mNonBypassPrivateDnsWorking = true;
 
         /** Whether DNS queries on mNonBypassPrivateDnsWorking should succeed. */
         private void setNonBypassPrivateDnsWorking(boolean working) {
@@ -694,7 +701,7 @@ public class NetworkMonitorTest {
         initHttpConnection(mFallbackConnection);
         initHttpConnection(mOtherFallbackConnection);
 
-        mFakeDns = new FakeDns();
+        mFakeDns = new FakeDns(mNetwork, mDnsResolver);
         mFakeDns.startMocking();
         // Set private dns suffix answer. sendPrivateDnsProbe() in NetworkMonitor send probe with
         // one time hostname. The hostname will be [random generated UUID] + HOST_SUFFIX differently

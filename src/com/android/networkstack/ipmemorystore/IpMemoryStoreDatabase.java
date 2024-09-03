@@ -749,6 +749,19 @@ public class IpMemoryStoreDatabase {
         }
     }
 
+    static int storeNetworkEvent(@NonNull final SQLiteDatabase db, @NonNull final String cluster,
+            final long timestamp, final long expiry, final int eventType) {
+        // TODO: implement this.
+        return Status.SUCCESS;
+    }
+
+    static int[] retrieveNetworkEventCount(@NonNull final SQLiteDatabase db,
+            @NonNull final String cluster, @NonNull final long[] sinceTimes,
+            @NonNull final int[] eventTypes) {
+        // TODO: implement this.
+        return new int[0];
+    }
+
     // Helper methods
     private static String getString(final Cursor cursor, final String columnName) {
         final int columnIndex = cursor.getColumnIndex(columnName);

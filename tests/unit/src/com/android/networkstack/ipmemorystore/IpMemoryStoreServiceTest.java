@@ -98,8 +98,8 @@ public class IpMemoryStoreServiceTest {
     private static final String TEST_CLIENT_ID = "testClientId";
     private static final String TEST_DATA_NAME = "testData";
     private static final String TEST_DATABASE_NAME = "test.db";
-    private static final String TEST_CLUSTER = "testCluster";
-    private static final String TEST_CLUSTER_1 = "testCluster1";
+    private static final String TEST_CLUSTER = "testCluster12345";
+    private static final String TEST_CLUSTER_1 = "testCluster01234";
 
     private static final File FILES_DIR = InstrumentationRegistry.getContext().getFilesDir();
     private static final String OLD_DB_NAME = "IpMemoryStore.db";
@@ -474,6 +474,7 @@ public class IpMemoryStoreServiceTest {
         storeNetworkEventOrFail("Did not complete storing a network event", cluster, now,
                 expiry, eventType);
     }
+
     private void storeNetworkEventOrFail(final String timeoutMessage, final String cluster,
             final long now, final long expiry, final int eventType) {
         doLatched(timeoutMessage, latch -> mService.storeNetworkEvent(cluster, now, expiry,
@@ -522,6 +523,22 @@ public class IpMemoryStoreServiceTest {
             assertTrue(mService.isDbSizeOverThreshold());
         } catch (final UnknownHostException e) {
             fail("Insert fake data fail");
+        }
+    }
+
+    private void generateFakeNetworkEvents() {
+        final int fakeEventCount = 1000;
+        final int expiredRecordsCount = 500;
+        final long now = System.currentTimeMillis();
+        for (int i = 0; i < fakeEventCount; i++) {
+            final long timestamp =
+                    i < expiredRecordsCount ? now - ONE_WEEK_IN_MS - i : now + i;
+            final long expiry = timestamp + ONE_WEEK_IN_MS;
+            storeNetworkEventOrFail(
+                    TEST_CLUSTER,
+                    timestamp,
+                    expiry,
+                    NETWORK_EVENT_NUD_FAILURE_TYPES[i % 4]);
         }
     }
 
@@ -881,6 +898,25 @@ public class IpMemoryStoreServiceTest {
     @Test
     public void testFullMaintenance() throws Exception {
         copyTestData(mDbFile);
+        // After inserting test data, the size of the DB should be larger than the threshold.
+        assertTrue(mService.isDbSizeOverThreshold());
+
+        final InterruptMaintenance im = new InterruptMaintenance(0/* Fake JobId */);
+        // Do full maintenance and then the db should go down in size and be under the threshold.
+        doLatched("Maintenance unexpectedly completed successfully", latch ->
+                mService.fullMaintenance(onStatus((status) -> {
+                    assertTrue("Execute full maintenance failed: "
+                            + status.resultCode, status.isSuccess());
+                    latch.countDown();
+                }), im), LONG_TIMEOUT_MS);
+
+        // If maintenance is successful, the db size shall meet the threshold.
+        assertFalse(mService.isDbSizeOverThreshold());
+    }
+
+    @Test
+    public void testFullMaintenance_networkEvents() throws Exception {
+        generateFakeNetworkEvents();
         // After inserting test data, the size of the DB should be larger than the threshold.
         assertTrue(mService.isDbSizeOverThreshold());
 

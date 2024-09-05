@@ -190,7 +190,7 @@ public class ConnectivityPacketTracker {
     }
 
     @VisibleForTesting(visibility = PRIVATE)
-    public int getTotalCapturePacketCount() {
+    public int getCapturePacketTypeCount() {
         return mPacketCache.size();
     }
 

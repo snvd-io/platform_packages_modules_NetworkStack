@@ -26,7 +26,7 @@ import androidx.test.runner.AndroidJUnit4
 import com.android.networkstack.util.DnsUtils
 import com.android.networkstack.util.DnsUtils.TYPE_ADDRCONFIG
 import com.android.server.connectivity.NetworkMonitor.DnsLogFunc
-import com.android.server.connectivity.FakeDns
+import com.android.testutils.FakeDns
 import java.net.InetAddress
 import java.net.UnknownHostException
 import kotlin.test.assertFailsWith

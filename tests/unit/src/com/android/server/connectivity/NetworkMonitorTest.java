@@ -187,6 +187,7 @@ import com.android.testutils.DevSdkIgnoreRule;
 import com.android.testutils.DevSdkIgnoreRule.IgnoreAfter;
 import com.android.testutils.DevSdkIgnoreRule.IgnoreUpTo;
 import com.android.testutils.DevSdkIgnoreRunner;
+import com.android.testutils.FakeDns;
 import com.android.testutils.HandlerUtils;
 
 import com.google.protobuf.nano.MessageNano;

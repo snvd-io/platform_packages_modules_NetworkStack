@@ -32,6 +32,7 @@ import android.os.Handler;
 import android.os.Looper;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.android.testutils.DnsSvcbUtils;
 
@@ -43,7 +44,6 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -92,16 +92,18 @@ public class FakeDns {
 
     public interface AnswerSupplier {
         /** Supplies the answer to one DnsResolver query method call. */
-        List<String> get() throws DnsResolver.DnsException;
+        @Nullable
+        String[] get() throws DnsResolver.DnsException;
     }
 
     private static class InstantAnswerSupplier implements AnswerSupplier {
-        private final List<String> mAnswers;
-        InstantAnswerSupplier(List<String> answers) {
+        private final String[] mAnswers;
+        InstantAnswerSupplier(String[] answers) {
             mAnswers = answers;
         }
         @Override
-        public List<String> get() {
+        @Nullable
+        public String[] get() {
             return mAnswers;
         }
     }
@@ -119,7 +121,7 @@ public class FakeDns {
     }
 
     /** Returns the answer for a given name and type on the given mock network. */
-    private CompletableFuture<List<String>> getAnswer(Network mockNetwork, String hostname,
+    private CompletableFuture<String[]> getAnswer(Network mockNetwork, String hostname,
             int type) {
         if (mNetwork.equals(mockNetwork) && !mNonBypassPrivateDnsWorking) {
             return CompletableFuture.completedFuture(null);
@@ -141,7 +143,7 @@ public class FakeDns {
             return CompletableFuture.completedFuture(
                     ((InstantAnswerSupplier) answerSupplier).get());
         }
-        final CompletableFuture<List<String>> answerFuture = new CompletableFuture<>();
+        final CompletableFuture<String[]> answerFuture = new CompletableFuture<>();
         new Thread(() -> {
             try {
                 answerFuture.complete(answerSupplier.get());
@@ -154,8 +156,7 @@ public class FakeDns {
 
     /** Sets the answer for a given name and type. */
     public void setAnswer(String hostname, String[] answer, int type) {
-        setAnswer(hostname, new InstantAnswerSupplier(
-                (answer == null) ? null : Arrays.asList(answer)), type);
+        setAnswer(hostname, new InstantAnswerSupplier(answer), type);
     }
 
     /** Sets the answer for a given name and type. */
@@ -169,10 +170,9 @@ public class FakeDns {
         }
     }
 
-    private byte[] makeSvcbResponse(String hostname, List<String> answer) {
+    private byte[] makeSvcbResponse(String hostname, String[] answer) {
         try {
-            return DnsSvcbUtils.makeSvcbResponse(hostname,
-                    answer.toArray(new String[0]));
+            return DnsSvcbUtils.makeSvcbResponse(hostname, answer);
         } catch (IOException e) {
             throw new AssertionError("Invalid test data building SVCB response for: "
                     + answer);
@@ -197,25 +197,25 @@ public class FakeDns {
 
     // Regardless of the type, depends on what the responses contained in the network.
     @SuppressWarnings("FutureReturnValueIgnored")
-    private CompletableFuture<List<String>> queryAllTypes(
+    private CompletableFuture<String[]> queryAllTypes(
             Network mockNetwork, String hostname) {
         if (mNetwork.equals(mockNetwork) && !mNonBypassPrivateDnsWorking) {
             return CompletableFuture.completedFuture(null);
         }
 
-        final CompletableFuture<List<String>> aFuture =
+        final CompletableFuture<String[]> aFuture =
                 getAnswer(mockNetwork, hostname, TYPE_A)
-                        .exceptionally(e -> Collections.emptyList());
-        final CompletableFuture<List<String>> aaaaFuture =
+                        .exceptionally(e -> new String[0]);
+        final CompletableFuture<String[]> aaaaFuture =
                 getAnswer(mockNetwork, hostname, TYPE_AAAA)
-                        .exceptionally(e -> Collections.emptyList());
+                        .exceptionally(e -> new String[0]);
 
-        final CompletableFuture<List<String>> combinedFuture = new CompletableFuture<>();
+        final CompletableFuture<String[]> combinedFuture = new CompletableFuture<>();
         aFuture.thenAcceptBoth(aaaaFuture, (res1, res2) -> {
-            final List<String> answer = new ArrayList<>();
-            if (res1 != null) answer.addAll(res1);
-            if (res2 != null) answer.addAll(res2);
-            combinedFuture.complete(answer);
+            final List<String> answerList = new ArrayList<>();
+            if (res1 != null) answerList.addAll(Arrays.asList(res1));
+            if (res2 != null) answerList.addAll(Arrays.asList(res2));
+            combinedFuture.complete(answerList.toArray(new String[0]));
         });
         return combinedFuture;
     }
@@ -247,7 +247,7 @@ public class FakeDns {
                 any(), any());
     }
 
-    private List<InetAddress> stringsToInetAddresses(List<String> addrs) {
+    private List<InetAddress> stringsToInetAddresses(String[] addrs) {
         if (addrs == null) return null;
         final List<InetAddress> out = new ArrayList<>();
         for (String addr : addrs) {
@@ -265,7 +265,7 @@ public class FakeDns {
         Network network = invocation.getArgument(posNetwork);
         DnsResolver.Callback callback = invocation.getArgument(posCallback);
 
-        final CompletableFuture<List<String>> answerFuture = (posType != -1)
+        final CompletableFuture<String[]> answerFuture = (posType != -1)
                 ? getAnswer(network, hostname, invocation.getArgument(posType))
                 : queryAllTypes(network, hostname);
 
@@ -278,7 +278,7 @@ public class FakeDns {
                     callback.onError((DnsResolver.DnsException) exception);
                     return;
                 }
-                if (answer != null && answer.size() > 0) {
+                if (answer != null && answer.length > 0) {
                     final int qtype = (posType != -1)
                             ? invocation.getArgument(posType) : TYPE_AAAA;
                     switch (qtype) {

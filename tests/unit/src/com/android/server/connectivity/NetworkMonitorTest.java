@@ -2322,7 +2322,7 @@ public class NetworkMonitorTest {
         final ConditionVariable v4Queried = new ConditionVariable();
         mFakeDns.setAnswer("dns.google", () -> {
             v4Queried.open();
-            return List.of("192.0.2.123");
+            return new String[]{"192.0.2.123"};
         }, TYPE_A);
         mFakeDns.setAnswer("dns.google", () -> {
             // Make sure the v6 query processing is a bit slower than the v6 one. The small delay
@@ -2331,7 +2331,7 @@ public class NetworkMonitorTest {
             // not, the test should pass.
             v4Queried.block(HANDLER_TIMEOUT_MS);
             SystemClock.sleep(10L);
-            return List.of("2001:db8::1", "2001:db8::2");
+            return new String[]{"2001:db8::1", "2001:db8::2"};
         }, TYPE_AAAA);
 
         notifyNetworkConnected(wnm, CELL_NOT_METERED_CAPABILITIES);
@@ -2362,12 +2362,12 @@ public class NetworkMonitorTest {
         mFakeDns.setAnswer("v1.google", () -> {
             queriedLatch.countDown();
             blockReplies.block(HANDLER_TIMEOUT_MS);
-            return List.of("192.0.2.123");
+            return new String[]{"192.0.2.123"};
         }, TYPE_A);
         mFakeDns.setAnswer("v1.google", () -> {
             queriedLatch.countDown();
             blockReplies.block(HANDLER_TIMEOUT_MS);
-            return List.of("2001:db8::1");
+            return new String[]{"2001:db8::1"};
         }, TYPE_AAAA);
 
         notifyNetworkConnected(wnm, CELL_NOT_METERED_CAPABILITIES);
@@ -2410,12 +2410,12 @@ public class NetworkMonitorTest {
         mFakeDns.setAnswer("v1.google", () -> {
             queriedLatch.countDown();
             blockReplies.block(HANDLER_TIMEOUT_MS);
-            return List.of("192.0.2.123");
+            return new String[]{"192.0.2.123"};
         }, TYPE_A);
         mFakeDns.setAnswer("v1.google", () -> {
             queriedLatch.countDown();
             blockReplies.block(HANDLER_TIMEOUT_MS);
-            return List.of("2001:db8::1");
+            return new String[]{"2001:db8::1"};
         }, TYPE_AAAA);
 
         notifyNetworkConnected(wnm, CELL_NOT_METERED_CAPABILITIES);
@@ -3218,11 +3218,11 @@ public class NetworkMonitorTest {
         mFakeDns.setAnswer("www.google.com", () -> {
             // Make sure the DNS probes take at least 1ms
             SystemClock.sleep(1);
-            return List.of("2001:db8::443");
+            return new String[]{"2001:db8::443"};
         }, TYPE_AAAA);
         mFakeDns.setAnswer(PRIVATE_DNS_PROBE_HOST_SUFFIX, () -> {
             SystemClock.sleep(1);
-            return List.of("2001:db8::444");
+            return new String[]{"2001:db8::444"};
         }, TYPE_AAAA);
         setStatus(mHttpsConnection, 204);
         setStatus(mHttpConnection, 204);

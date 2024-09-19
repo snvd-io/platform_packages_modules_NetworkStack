@@ -69,7 +69,6 @@ public class FakeDns {
     private boolean mNonBypassPrivateDnsWorking = true;
 
     public FakeDns(@NonNull Network network, @NonNull DnsResolver dnsResolver) {
-
         mNetwork = Objects.requireNonNull(network);
         mDnsResolver = Objects.requireNonNull(dnsResolver);
     }
